@@ -1,5 +1,8 @@
+mod db;
+mod handlers;
+mod models;
+
 use anyhow::Result;
-use sqlx::postgres::PgPoolOptions;
 use std::env;
 use warp::Filter;
 
@@ -17,21 +20,30 @@ async fn main() -> Result<()> {
         .expect("SERVER_PORT must be a valid u16");
 
     tracing::info!("Connecting to database...");
-    let db_pool = PgPoolOptions::new()
-        .max_connections(5)
-        .connect(&database_url)
-        .await?;
+    let db_pool = db::create_pool(&database_url).await?;
 
     tracing::info!("Running database migrations...");
-    sqlx::migrate!("./migrations").run(&db_pool).await?;
+    sqlx::migrate!("./migrations").run(&*db_pool).await?;
 
+    // health route
     let health = warp::path("health").map(|| {
         warp::reply::json(&serde_json::json!({
             "status": "healthy"
         }))
     });
 
-    let routes = health;
+    // Admin routes
+    let admin_routes = {
+        let create_key = warp::path!("admin" / "keys")
+            .and(warp::post())
+            .and(warp::body::json())
+            .and(with_db(db_pool.clone()))
+            .and_then(handlers::admin::create_api_key);
+
+        create_key
+    };
+
+    let routes = health.or(admin_routes);
 
     tracing::info!("Server starting on {}:{}", host, port);
 
@@ -40,4 +52,11 @@ async fn main() -> Result<()> {
         .await;
 
     Ok(())
+}
+
+// Function to pass database pool to handlers
+fn with_db(
+    db: db::DbPool,
+) -> impl Filter<Extract = (db::DbPool,), Error = std::convert::Infallible> + Clone {
+    warp::any().map(move || db.clone())
 }
