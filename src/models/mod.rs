@@ -28,7 +28,7 @@ pub struct CreateApiKeyResponse {
 
 #[derive(Debug, Serialize)]
 pub struct ApiKeyListResponse {
-    pub key: Vec<ApiKeyInfo>,
+    pub keys: Vec<ApiKeyInfo>,
 }
 
 #[derive(Debug, Serialize)]

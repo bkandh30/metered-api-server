@@ -4,6 +4,7 @@ use crate::models::{
 };
 use rand::Rng;
 use std::convert::Infallible;
+use uuid::Uuid;
 use warp::{Reply, http::StatusCode, reply};
 
 fn generate_api_key() -> String {
@@ -81,7 +82,7 @@ pub async fn list_api_keys(db: DbPool) -> Result<impl Reply, Infallible> {
                 })
                 .collect();
 
-            let response = ApiKeyListResponse { key: key_infos };
+            let response = ApiKeyListResponse { keys: key_infos };
             Ok(reply::with_status(reply::json(&response), StatusCode::OK))
         }
         Err(e) => {
@@ -89,6 +90,54 @@ pub async fn list_api_keys(db: DbPool) -> Result<impl Reply, Infallible> {
             Ok(reply::with_status(
                 reply::json(&serde_json::json!({
                     "error": "Failed to list API keys"
+                })),
+                StatusCode::INTERNAL_SERVER_ERROR,
+            ))
+        }
+    }
+}
+
+pub async fn delete_api_key(id: String, db: DbPool) -> Result<impl Reply, Infallible> {
+    let uuid = match Uuid::parse_str(&id) {
+        Ok(u) => u,
+        Err(_) => {
+            return Ok(reply::with_status(
+                reply::json(&serde_json::json!({
+                    "error": "Invalid UUID format"
+                })),
+                StatusCode::BAD_REQUEST,
+            ));
+        }
+    };
+
+    let result = sqlx::query("DELETE FROM api_keys WHERE id = $1")
+        .bind(uuid)
+        .execute(&*db)
+        .await;
+
+    match result {
+        Ok(res) => {
+            if res.rows_affected() == 0 {
+                Ok(reply::with_status(
+                    reply::json(&serde_json::json!({
+                        "message": "API key not found"
+                    })),
+                    StatusCode::NOT_FOUND,
+                ))
+            } else {
+                Ok(reply::with_status(
+                    reply::json(&serde_json::json!({
+                        "message": "API key deleted successfully"
+                    })),
+                    StatusCode::OK,
+                ))
+            }
+        }
+        Err(e) => {
+            tracing::error!("Failed to delete API key: {:?}", e);
+            Ok(reply::with_status(
+                reply::json(&serde_json::json!({
+                    "error": "Failed to delete API key"
                 })),
                 StatusCode::INTERNAL_SERVER_ERROR,
             ))

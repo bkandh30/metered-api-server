@@ -45,7 +45,12 @@ async fn main() -> Result<()> {
             .and(with_db(db_pool.clone()))
             .and_then(handlers::admin::list_api_keys);
 
-        create_key.or(list_keys)
+        let delete_key = warp::path!("admin" / "keys" / String)
+            .and(warp::delete())
+            .and(with_db(db_pool.clone()))
+            .and_then(handlers::admin::delete_api_key);
+
+        create_key.or(list_keys).or(delete_key)
     };
 
     let routes = health.or(admin_routes);
