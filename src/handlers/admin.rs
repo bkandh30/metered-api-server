@@ -1,5 +1,7 @@
 use crate::db::DbPool;
-use crate::models::{ApiKey, CreateApiKeyRequest, CreateApiKeyResponse};
+use crate::models::{
+    ApiKey, ApiKeyInfo, ApiKeyListResponse, CreateApiKeyRequest, CreateApiKeyResponse,
+};
 use rand::Rng;
 use std::convert::Infallible;
 use warp::{Reply, http::StatusCode, reply};
@@ -54,6 +56,39 @@ pub async fn create_api_key(
             Ok(reply::with_status(
                 reply::json(&serde_json::json!({
                     "error": "Failed to create API key"
+                })),
+                StatusCode::INTERNAL_SERVER_ERROR,
+            ))
+        }
+    }
+}
+
+pub async fn list_api_keys(db: DbPool) -> Result<impl Reply, Infallible> {
+    let result = sqlx::query_as::<_, ApiKey>("SELECT * FROM api_keys ORDER BY created_at DESC")
+        .fetch_all(&*db)
+        .await;
+
+    match result {
+        Ok(keys) => {
+            let key_infos: Vec<ApiKeyInfo> = keys
+                .into_iter()
+                .map(|k| ApiKeyInfo {
+                    id: k.id,
+                    name: k.name,
+                    usage_count: k.usage_count,
+                    is_active: k.is_active,
+                    created_at: k.created_at,
+                })
+                .collect();
+
+            let response = ApiKeyListResponse { key: key_infos };
+            Ok(reply::with_status(reply::json(&response), StatusCode::OK))
+        }
+        Err(e) => {
+            tracing::error!("Failed to list API keys: {:?}", e);
+            Ok(reply::with_status(
+                reply::json(&serde_json::json!({
+                    "error": "Failed to list API keys"
                 })),
                 StatusCode::INTERNAL_SERVER_ERROR,
             ))

@@ -40,7 +40,12 @@ async fn main() -> Result<()> {
             .and(with_db(db_pool.clone()))
             .and_then(handlers::admin::create_api_key);
 
-        create_key
+        let list_keys = warp::path!("admin" / "keys")
+            .and(warp::get())
+            .and(with_db(db_pool.clone()))
+            .and_then(handlers::admin::list_api_keys);
+
+        create_key.or(list_keys)
     };
 
     let routes = health.or(admin_routes);
