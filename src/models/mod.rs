@@ -3,6 +3,9 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
 
+pub mod business;
+pub use business::*;
+
 #[derive(Debug, Serialize, Deserialize, FromRow)]
 pub struct ApiKey {
     pub id: Uuid,
