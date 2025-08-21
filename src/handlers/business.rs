@@ -1,5 +1,6 @@
 use chrono::Utc;
 use std::convert::Infallible;
+use uuid::Uuid;
 use warp::{Reply, http::StatusCode, reply};
 
 use crate::{
@@ -20,17 +21,17 @@ pub async fn submit_reading(
         reading.unit
     );
 
-    let result = sqlx::query!(
+    let result = sqlx::query(
         r#"
         INSERT INTO readings (id, api_key_id, sensor_id, value, unit)
         VALUES ($1, $2, $3, $4, $5)
         "#,
-        uuid::Uuid::new_v4(),
-        api_key.id,
-        reading.sensor_id,
-        reading.value,
-        reading.unit
     )
+    .bind(Uuid::new_v4())
+    .bind(api_key.id)
+    .bind(&reading.sensor_id)
+    .bind(reading.value)
+    .bind(&reading.unit)
     .execute(&*db)
     .await;
 
