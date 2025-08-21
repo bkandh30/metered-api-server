@@ -56,11 +56,12 @@ async fn main() -> Result<()> {
 
     let protected_routes = {
         let submit_reading = warp::path!("readings")
-        .and(warp::post())
-        .and(middleware::auth::with_api_key(db_pool.clone()))
-        .and(warp::body::json())
-        .and_then(handlers::business::submit_reading);
-    }
+            .and(warp::post())
+            .and(middleware::auth::with_api_key(db_pool.clone()))
+            .and(db::with_db(db_pool.clone()))
+            .and(warp::body::json())
+            .and_then(handlers::business::submit_reading);
+    };
 
     let routes = health
         .or(admin_routes)
