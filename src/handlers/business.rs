@@ -9,6 +9,7 @@ use crate::{
 
 pub async fn submit_reading(
     api_key: ApiKey,
+    db: DbPool,
     reading: ReadingRequest,
 ) -> Result<impl Reply, Infallible> {
     tracing::info!(
@@ -19,18 +20,50 @@ pub async fn submit_reading(
         reading.unit
     );
 
-    let response = ReadingResponse {
-        status: "success".to_string(),
-        message: "Reading recorded successfully".to_string(),
-        timestamp: Utc::now(),
-        data: ReadingData {
-            sensor_id: reading.sensor_id,
-            value: reading.value,
-            unit: reading.unit,
-        },
-    };
+    let result = sqlx::query!(
+        r#"
+        INSERT INTO readings (id, api_key_id, sensor_id, value, unit)
+        VALUES ($1, $2, $3, $4, $5)
+        "#,
+        uuid::Uuid::new_v4(),
+        api_key.id,
+        reading.sensor_id,
+        reading.value,
+        reading.unit
+    )
+    .execute(&*db)
+    .await;
 
-    Ok(reply::with_status(reply::json(&response), StatusCode::OK))
+    match result {
+        Ok(_) => {
+            let response = ReadingResponse {
+                status: "success".to_string(),
+                message: "Reading recorded successfully".to_string(),
+                timestamp: Utc::now(),
+                data: ReadingData {
+                    sensor_id: reading.sensor_id,
+                    value: reading.value,
+                    unit: reading.unit,
+                },
+            };
+
+            Ok(reply::with_status(
+                reply::json(&response),
+                StatusCode::CREATED,
+            ))
+        }
+        Err(e) => {
+            tracing::error!("Failed to save reading: {:?}", e);
+
+            let err_response =
+                reply::json(&serde_json::json!({"error": "Failed to save the reading"}));
+
+            Ok(reply::with_status(
+                err_response,
+                StatusCode::INTERNAL_SERVER_ERROR,
+            ))
+        }
+    }
 }
 
 pub async fn get_readings(api_key: ApiKey, db: DbPool) -> Result<impl Reply, Infallible> {
