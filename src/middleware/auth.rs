@@ -49,3 +49,32 @@ async fn validate_api_key(api_key: Option<String>, db: DbPool) -> Result<String,
         }
     }
 }
+
+pub async fn handle_rejection(
+    err: Rejection,
+) -> Result<impl warp::Reply, std::convert::Infallible> {
+    let code;
+    let message;
+
+    if err.is_not_found() {
+        code = StatusCode::NOT_FOUND;
+        message = "Not Found";
+    } else if let Some(Unauthorized) = err.find::<Unauthorized>() {
+        code = StatusCode::UNAUTHORIZED;
+        message = "Unauthorized = Invalid or missing API key";
+    } else if err.find::<warp::reject::MethodNotAllowed>().is_some() {
+        code = StatusCode::METHOD_NOT_ALLOWED;
+        message = "Method Not Allowed";
+    } else {
+        tracing::error!("Unhandled rejection: {:?}", err);
+        code = StatusCode::INTERNAL_SERVER_ERROR;
+        message = "Internal Server Error";
+    }
+
+    let json = warp::reply::json(&serde_json::json!({
+        "error": message,
+        "status": code.as_u16()
+    }));
+
+    Ok(warp::reply::with_status(json, code))
+}
