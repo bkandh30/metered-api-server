@@ -1,5 +1,6 @@
 mod db;
 mod handlers;
+mod middleware;
 mod models;
 
 use anyhow::Result;
@@ -53,7 +54,18 @@ async fn main() -> Result<()> {
         create_key.or(list_keys).or(delete_key)
     };
 
-    let routes = health.or(admin_routes);
+    let protected_routes = {
+        let submit_reading = warp::path!("readings")
+        .and(warp::post())
+        .and(middleware::auth::with_api_key(db_pool.clone()))
+        .and(warp::body::json())
+        .and_then(handlers::business::submit_reading);
+    }
+
+    let routes = health
+        .or(admin_routes)
+        .or(protected_routes)
+        .recover(middleware::auth::handle_rejection);
 
     tracing::info!("Server starting on {}:{}", host, port);
 

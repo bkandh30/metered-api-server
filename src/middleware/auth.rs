@@ -29,7 +29,7 @@ async fn validate_api_key(api_key: Option<String>, db: DbPool) -> Result<String,
                 "#,
                 key
             )
-            .fetch_optional(&**db)
+            .fetch_optional(&*db)
             .await;
 
             match result {
