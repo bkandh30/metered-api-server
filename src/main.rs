@@ -61,6 +61,14 @@ async fn main() -> Result<()> {
             .and(db::with_db(db_pool.clone()))
             .and(warp::body::json())
             .and_then(handlers::business::submit_reading);
+
+        let get_readings = warp::path!("readings")
+            .and(warp::get())
+            .and(middleware::auth::with_api_key(db_pool.clone()))
+            .and(db::with_db(db_pool.clone()))
+            .and_then(handlers::business::get_readings);
+
+        submit_reading.or(get_readings)
     };
 
     let routes = health
