@@ -72,8 +72,7 @@ pub async fn handle_rejection(
     }
 
     let json = warp::reply::json(&serde_json::json!({
-        "error": message,
-        "status": code.as_u16()
+        "error": message
     }));
 
     Ok(warp::reply::with_status(json, code))
