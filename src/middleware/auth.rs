@@ -50,7 +50,7 @@ pub async fn handle_rejection(
         message = "Not Found";
     } else if let Some(Unauthorized) = err.find::<Unauthorized>() {
         code = StatusCode::UNAUTHORIZED;
-        message = "Unauthorized = Invalid or missing API key";
+        message = "Unauthorized: Invalid or missing API key";
     } else if err.find::<warp::reject::MethodNotAllowed>().is_some() {
         code = StatusCode::METHOD_NOT_ALLOWED;
         message = "Method Not Allowed";
