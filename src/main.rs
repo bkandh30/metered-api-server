@@ -92,6 +92,8 @@ async fn main() -> Result<()> {
         .or(protected_routes)
         .recover(middleware::auth::handle_rejection);
 
+    let routes = routes.with(middleware::auth::with_request_logging(db_pool.clone()));
+
     tracing::info!("Server starting on {}:{}", host, port);
 
     warp::serve(routes)
