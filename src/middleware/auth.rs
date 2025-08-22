@@ -1,8 +1,8 @@
 use crate::db::DbPool;
 use crate::models::ApiKey;
-use std::time::Instant;
+use uuid::Uuid;
 use warp::http::StatusCode;
-use warp::{Filter, Rejection, reject, reply};
+use warp::{Filter, Rejection, log, reject, reply};
 
 #[derive(Debug)]
 pub struct Unauthorized;
@@ -15,7 +15,7 @@ pub fn with_api_key(db: DbPool) -> impl Filter<Extract = (ApiKey,), Error = Reje
 }
 
 async fn validate_api_key(api_key: Option<String>, db: DbPool) -> Result<ApiKey, Rejection> {
-    let key = api_key.ok_or_else(|| warp::reject::custom(Unauthorized))?;
+    let key = api_key.ok_or(warp::reject::custom(Unauthorized))?;
 
     let result = sqlx::query_as::<_, ApiKey>(
         r#"
@@ -40,43 +40,56 @@ async fn validate_api_key(api_key: Option<String>, db: DbPool) -> Result<ApiKey,
     }
 }
 
-pub fn with_api_key_and_logging(
-    db: DbPool,
-) -> impl Filter<Extract = (ApiKey,), Error = Rejection> + Clone {
-    warp::header::optional::<String>("x-api-key")
-        .and(warp::any().map(move || db.clone()))
-        .and(warp::method())
-        .and(warp::path::full())
-        .and_then(validate_and_log)
-}
+pub fn with_request_logging(db: DbPool) -> log::Log<impl Fn(log::Info) + Clone> {
+    log::custom(move |info: log::Info| {
+        let path = info.path().to_owned();
+        let method = info.method().clone();
+        let status = info.status();
+        let elapsed = info.elapsed();
+        let headers = info.request_headers().clone();
+        let db = db.clone();
 
-async fn validate_and_log(
-    api_key: Option<String>,
-    db: DbPool,
-    method: warp::http::Method,
-    path: warp::path::FullPath,
-) -> Result<ApiKey, Rejection> {
-    let start = Instant::now();
+        tokio::spawn(async move {
+            let api_key_id =
+                if let Some(key) = headers.get("x-api-key").and_then(|v| v.to_str().ok()) {
+                    sqlx::query!(
+                        r#"
+                    SELECT id FROM api_keys
+                    WHERE key = $1
+                    "#,
+                        key
+                    )
+                    .fetch_optional(&*db)
+                    .await
+                    .ok()
+                    .flatten()
+                    .map(|rec| rec.id)
+                } else {
+                    None
+                };
 
-    let api_key_record = validate_api_key(api_key, db.clone()).await?;
+            if let Some(id) = api_key_id {
+                let result = sqlx::query!(
+                    r#"
+                    INSERT INTO requests (id, api_key_id, endpoint, method, status_code, response_time_ms)
+                    VALUES ($1, $2, $3, $4, $5, $6)
+                    "#,
+                    Uuid::new_v4(),
+                    id,
+                    path,
+                    method.as_str(),
+                    status.as_u16() as i16,
+                    elapsed.as_millis() as i32
+                )
+                .execute(&*db)
+                .await;
 
-    let response_time_ms = start.elapsed().as_millis() as i32;
-
-    let _ = sqlx::query!(
-        r#"
-        INSERT INTO requests (api_key_id, endpoint, method, status_code, response_time_ms)
-        VALUES ($1, $2, $3, $4, $5)
-        "#,
-        api_key_record.id,
-        path.as_str(),
-        method.as_str(),
-        200i32,
-        response_time_ms
-    )
-    .execute(&*db)
-    .await;
-
-    Ok(api_key_record)
+                if let Err(e) = result {
+                    tracing::error!("Failed to log request to database: {:?}", e);
+                }
+            }
+        });
+    })
 }
 
 pub async fn handle_rejection(
