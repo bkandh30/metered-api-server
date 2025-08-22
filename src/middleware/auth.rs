@@ -1,4 +1,5 @@
 use crate::db::DbPool;
+use crate::middleware::rate_limiter::RateLimitExceeded;
 use crate::models::ApiKey;
 use uuid::Uuid;
 use warp::http::StatusCode;
@@ -107,6 +108,12 @@ pub async fn handle_rejection(
     } else if err.find::<warp::reject::MethodNotAllowed>().is_some() {
         code = StatusCode::METHOD_NOT_ALLOWED;
         message = "Method Not Allowed";
+    } else if let Some(RateLimitExceeded) = err.find::<RateLimitExceeded>() {
+        code = StatusCode::TOO_MANY_REQUESTS;
+        message = "Rate limit exceeded. Please slow down.";
+    } else if let Some(QuotaExceeded) = err.find::<QuotaExceeded>() {
+        code = StatusCode::FORBIDDEN;
+        message = "API quota exceeded. Please upgrade your plan.";
     } else {
         tracing::error!("Unhandled rejection: {:?}", err);
         code = StatusCode::INTERNAL_SERVER_ERROR;

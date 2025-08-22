@@ -2,7 +2,7 @@ use chrono::{DateTime, Duration, Utc};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use uuid::uuid;
+use uuid::Uuid;
 use warp::{Rejection, reject};
 
 #[derive(Debug)]
