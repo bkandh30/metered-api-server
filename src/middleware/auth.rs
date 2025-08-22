@@ -101,23 +101,23 @@ pub async fn handle_rejection(
 
     if err.is_not_found() {
         code = StatusCode::NOT_FOUND;
-        message = "Not Found";
-    } else if let Some(Unauthorized) = err.find::<Unauthorized>() {
+        message = "Requested resource was not found.";
+    } else if err.find::<Unauthorized>().is_some() {
         code = StatusCode::UNAUTHORIZED;
-        message = "Unauthorized: Invalid or missing API key";
-    } else if err.find::<warp::reject::MethodNotAllowed>().is_some() {
-        code = StatusCode::METHOD_NOT_ALLOWED;
-        message = "Method Not Allowed";
-    } else if let Some(RateLimitExceeded) = err.find::<RateLimitExceeded>() {
+        message = "Authentication error: API key is invalid or missing.";
+    } else if err.find::<QuotaExceeded>().is_some() {
+        code = StatusCode::FORBIDDEN;
+        message = "API key has exceeded its request quota.";
+    } else if err.find::<RateLimitExceeded>().is_some() {
         code = StatusCode::TOO_MANY_REQUESTS;
         message = "Rate limit exceeded. Please slow down.";
-    } else if let Some(QuotaExceeded) = err.find::<QuotaExceeded>() {
-        code = StatusCode::FORBIDDEN;
-        message = "API quota exceeded. Please upgrade your plan.";
+    } else if err.find::<warp::reject::MethodNotAllowed>().is_some() {
+        code = StatusCode::METHOD_NOT_ALLOWED;
+        message = "HTTP method is not allowed for the requested resource.";
     } else {
         tracing::error!("Unhandled rejection: {:?}", err);
         code = StatusCode::INTERNAL_SERVER_ERROR;
-        message = "Internal Server Error";
+        message = "Internal Server Error.";
     }
 
     let json = warp::reply::json(&serde_json::json!({
