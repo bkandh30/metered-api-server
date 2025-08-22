@@ -1,5 +1,5 @@
 use crate::db::DbPool;
-use crate::middleware::rate_limiter::RateLimitExceeded;
+use crate::middleware::rate_limiter::{RateLimitExceeded, RateLimiter};
 use crate::models::ApiKey;
 use uuid::Uuid;
 use warp::http::StatusCode;
@@ -9,13 +9,25 @@ use warp::{Filter, Rejection, log, reject, reply};
 pub struct Unauthorized;
 impl reject::Reject for Unauthorized {}
 
-pub fn with_api_key(db: DbPool) -> impl Filter<Extract = (ApiKey,), Error = Rejection> + Clone {
+#[derive(Debug)]
+pub struct QuotaExceeded;
+impl reject::Reject for QuotaExceeded {}
+
+pub fn with_api_key(
+    db: DbPool,
+    limiter: RateLimiter,
+) -> impl Filter<Extract = (ApiKey,), Error = Rejection> + Clone {
     warp::header::optional::<String>("x-api-key")
         .and(warp::any().map(move || db.clone()))
+        .and(warp::any().map(move || limiter.clone()))
         .and_then(validate_api_key)
 }
 
-async fn validate_api_key(api_key: Option<String>, db: DbPool) -> Result<ApiKey, Rejection> {
+async fn validate_api_key(
+    api_key: Option<String>,
+    db: DbPool,
+    limiter: RateLimiter,
+) -> Result<ApiKey, Rejection> {
     let key = api_key.ok_or(warp::reject::custom(Unauthorized))?;
 
     let result = sqlx::query_as::<_, ApiKey>(
@@ -23,7 +35,9 @@ async fn validate_api_key(api_key: Option<String>, db: DbPool) -> Result<ApiKey,
         UPDATE api_keys
         SET usage_count = usage_count + 1,
             updated_at = NOW()
-        WHERE key = $1 AND is_active = true
+        WHERE key = $1 
+            AND is_active = true
+            AND (quota_limit IS NULL or usage_count < quota_limit)
         RETURNING *
         "#,
     )
@@ -32,8 +46,14 @@ async fn validate_api_key(api_key: Option<String>, db: DbPool) -> Result<ApiKey,
     .await;
 
     match result {
-        Ok(Some(api_key_record)) => Ok(api_key_record),
-        Ok(None) => Err(reject::custom(Unauthorized)),
+        Ok(Some(api_key_record)) => {
+            limiter
+                .check_rate_limit(api_key_record.id, api_key_record.rate_limit_per_minute)
+                .await?;
+
+            Ok(api_key_record)
+        }
+        Ok(None) => Err(reject::custom(QuotaExceeded)),
         Err(e) => {
             tracing::error!("Database error during API key validation: {:?}", e);
             Err(reject::custom(Unauthorized))
