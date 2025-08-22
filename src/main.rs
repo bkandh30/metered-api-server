@@ -3,6 +3,7 @@ mod handlers;
 mod middleware;
 mod models;
 
+use crate::middleware::rate_limiter::RateLimiter;
 use anyhow::Result;
 use std::env;
 use warp::Filter;
@@ -25,6 +26,9 @@ async fn main() -> Result<()> {
 
     tracing::info!("Running database migrations...");
     sqlx::migrate!("./migrations").run(&*db_pool).await?;
+
+    // Rate Limiter Instance
+    let rate_limiter = RateLimiter::new();
 
     // health route
     let health = warp::path("health").map(|| {
@@ -73,14 +77,20 @@ async fn main() -> Result<()> {
     let protected_routes = {
         let submit_reading = warp::path!("readings")
             .and(warp::post())
-            .and(middleware::auth::with_api_key(db_pool.clone()))
+            .and(middleware::auth::with_api_key(
+                db_pool.clone(),
+                rate_limiter.clone(),
+            ))
             .and(with_db(db_pool.clone()))
             .and(warp::body::json())
             .and_then(handlers::business::submit_reading);
 
         let get_readings = warp::path!("readings")
             .and(warp::get())
-            .and(middleware::auth::with_api_key(db_pool.clone()))
+            .and(middleware::auth::with_api_key(
+                db_pool.clone(),
+                rate_limiter.clone(),
+            ))
             .and(with_db(db_pool.clone()))
             .and_then(handlers::business::get_readings);
 
