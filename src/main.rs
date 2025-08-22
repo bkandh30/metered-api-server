@@ -51,9 +51,25 @@ async fn main() -> Result<()> {
             .and(with_db(db_pool.clone()))
             .and_then(handlers::admin::delete_api_key);
 
-        create_key.or(list_keys).or(delete_key)
+        let get_stats = warp::path!("admin" / "keys" / String / "stats")
+            .and(warp::get())
+            .and(with_db(db_pool.clone()))
+            .and_then(handlers::usage::get_usage_stats);
+
+        let get_report = warp::path!("admin" / "keys" / String / "report")
+            .and(warp::get())
+            .and(warp::query::<handlers::usage::ReportParams>())
+            .and(with_db(db_pool.clone()))
+            .and_then(handlers::usage::get_monthly_report);
+
+        create_key
+            .or(list_keys)
+            .or(delete_key)
+            .or(get_stats)
+            .or(get_report)
     };
 
+    // Protected business routes
     let protected_routes = {
         let submit_reading = warp::path!("readings")
             .and(warp::post())
