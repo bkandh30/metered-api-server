@@ -18,6 +18,8 @@ pub struct ApiKey {
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub quota_limit: Option<i32>,
+    pub rate_limit_per_minute: i32,
 }
 
 #[derive(Debug, Deserialize)]
