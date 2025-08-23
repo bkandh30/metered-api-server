@@ -1,0 +1,48 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: metered_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-apiuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-apipassword}
+      POSTGRES_DB: ${POSTGRES_DB:-api_key_db}
+    ports:
+      - "${DB_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - api-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-apiuser}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: metered_api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-apiuser}:${POSTGRES_PASSWORD:-apipassword}@metered_db:5432/${POSTGRES_DB:-api_key_db}
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: ${SERVER_PORT:-3030}
+      RUST_LOG: ${RUST_LOG:-info}
+    ports:
+      - "${API_PORT:-3030}:3030"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - api-network
+    volumes:
+      - ./migrations:/app/migrations:ro
+
+networks:
+  api-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

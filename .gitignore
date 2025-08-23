@@ -1,11 +1,11 @@
 # Rust
 /target/
 **/*.rs.bk
-Cargo.lock  # Include this in version control for binary projects
 
 # Environment
 .env
 .env.local
+.env.docker
 *.env
 
 # IDE
@@ -21,3 +21,6 @@ Thumbs.db
 # Docker volumes (if you plan to have any)
 /data/
 /postgres-data/
+
+.sqlx/
+docker-compose.yml
