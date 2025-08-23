@@ -97,7 +97,13 @@ async fn main() -> Result<()> {
         submit_reading.or(get_readings)
     };
 
+    let metrics = warp::path!("metrics")
+        .and(warp::get())
+        .and(with_db(db_pool.clone()))
+        .and_then(handlers::metrics::get_metrics);
+
     let routes = health
+        .or(metrics)
         .or(admin_routes)
         .or(protected_routes)
         .recover(middleware::auth::handle_rejection);
