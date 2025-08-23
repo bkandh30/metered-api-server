@@ -1,4 +1,3 @@
-use crate::models::ReadingRequest;
 use serde::Deserialize;
 use warp::{Filter, Rejection, body, reject};
 
@@ -104,14 +103,18 @@ impl Validator {
     }
 }
 
-pub async fn validate_reading_request(
-    reading: ReadingRequest,
-) -> Result<ReadingRequest, Rejection> {
-    Validator::sensor_id(&reading.sensor_id).map_err(|e| reject::custom(ValidationError(e)))?;
+pub fn validate_reading_request()
+-> impl Filter<Extract = (crate::models::ReadingRequest,), Error = warp::Rejection> + Clone {
+    warp::body::json().and_then(|reading: crate::models::ReadingRequest| async move {
+        Validator::sensor_id(&reading.sensor_id)
+            .map_err(|e| warp::reject::custom(ValidationError(format!("sensor_id: {}", e))))?;
 
-    Validator::unit(&reading.unit).map_err(|e| reject::custom(ValidationError(e)))?;
+        Validator::unit(&reading.unit)
+            .map_err(|e| warp::reject::custom(ValidationError(format!("unit: {}", e))))?;
 
-    Validator::value(reading.value).map_err(|e| reject::custom(ValidationError(e)))?;
+        Validator::value(reading.value)
+            .map_err(|e| warp::reject::custom(ValidationError(format!("value: {}", e))))?;
 
-    Ok(reading)
+        Ok::<_, warp::Rejection>(reading)
+    })
 }

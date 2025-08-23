@@ -82,7 +82,7 @@ async fn main() -> Result<()> {
                 rate_limiter.clone(),
             ))
             .and(with_db(db_pool.clone()))
-            .and(warp::body::json())
+            .and(middleware::validation::validate_reading_request())
             .and_then(handlers::business::submit_reading);
 
         let get_readings = warp::path!("readings")
