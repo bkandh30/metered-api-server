@@ -1,92 +1,220 @@
-# Metered API Server (Rust)
+# Metered API Server
 
-A secure, production-ready API server built in Rust to provide metered access and usage tracking via API keys.
+A production-ready API server built with Rust that provides metered access with usage tracking, rate limiting, and quota management. Perfect for SaaS applications that need to monitor and control API usage per customer.
 
----
+## Features
 
-##  ​ Project Overview
+- **API Key Management**: Create, list, and delete API keys for customer access
+- **Usage Tracking**: Automatic tracking of every API request with detailed metrics
+- **Rate Limiting**: Configurable per-minute rate limits per API key
+- **Quota Management**: Set maximum request quotas per API key
+- **Detailed Analytics**: Usage statistics and monthly reports with CSV export
+- **Request Logging**: Complete audit trail of all API requests
+- **Input Validation**: Comprehensive validation of all inputs with detailed error messages
+- **Health Monitoring**: Built-in health checks and metrics endpoints
+- **Docker Support**: Full containerization with Docker and docker-compose
 
-This service offers authenticated API access with usage tracking, quotas, and rate limiting. Designed using industry-standard best practices, it features structured logging, health checks, OpenAPI documentation, containerization, and CI/CD workflows.
+## Tech Stack
 
----
+- **Rust** - Systems programming language for performance and safety
+- **Warp** - Modern, composable web framework
+- **SQLx** - Compile-time checked SQL queries
+- **PostgreSQL** - Reliable relational database
+- **Tokio** - Asynchronous runtime
+- **Docker** - Containerization for easy deployment
 
-##  ​ Features
+## Quick Start
 
-- API key lifecycle management (create/delete, authenticate, track usage)
-- Quotas enforcement and in-memory rate limiting
-- Structured logging with request IDs
-- Health and readiness probes (`/healthz`, `/readyz`)
-- OpenAPI documentation (`/docs`)
-- Containerized deployment via Docker Compose
-- CI/CD automation using GitHub Actions
+### Using Docker (Recommended)
 
----
+```bash
+# Clone the repository
+git clone https://github.com/bkandh30/metered-api-server.git
+cd metered-api-server
 
-##  ​ Current Progress
+# Copy environment file
+cp .env.example .env
+# Edit .env with your database credentials
 
-- [x] Core API with Rust, Warp, Tokio, and SQLx  
-- [x] API key management endpoints and authentication middleware  
-- [x] Usage tracking with PostgreSQL-backed counting  
-- [x] Quota enforcement and basic rate limiting  
-- [x] Dockerfile and `docker-compose.yml` for local and deployment setup  
-- [ ] Structured logging, health endpoints, OpenAPI docs, configuration management, and CI/CD integration (in progress)
+# Start the services
+docker-compose up -d
 
----
+# Check if services are running
+docker-compose ps
 
-##  ​ Roadmap
+# View logs
+docker-compose logs -f
+```
 
-| Phase | Status | Description |
-|-------|--------|-------------|
-| Phase 1 |  Done | Core API, API key CRUD, authentication middleware |
-| Phase 2 |  Done | Usage tracking & reporting |
-| Phase 3 |  Done | Quotas & rate limiting |
-| Phase 4 |  Done | Docker + PostgreSQL with Docker Compose |
-| Phase 5 |  In Progress | Structured logging, `/healthz`, config management, OpenAPI spec, CI pipelines |
+The API will be available at `http://localhost:3030`
 
----
+### Local Development
 
-##  ​ Tech Stack
+```bash
+# Clone and setup
+git clone https://github.com/bkandh30/metered-api-server.git
+cd metered-api-server
 
-- **Rust** (Warp, Tokio, sqlx, dotenvy)  
-- **PostgreSQL** (via SQLx)  
-- **Docker & Docker Compose**  
-- **OpenAPI** (e.g., using `utoipa`)  
-- **CI/CD** (GitHub Actions: linting, tests, build)
+# Setup environment
+cp .env.example .env
+# Edit .env with your database credentials
 
----
+# Run migrations
+sqlx migrate run
 
-##  ​ Getting Started
+# Run the server
+cargo run
+```
 
-1. Clone the repository and enter the project directory:
-    ```bash
-    git clone https://github.com/bkandh30/metered-api-server.git
-    cd metered-api-server
-    ```
+## API Endpoints
 
-2. Setup environment variables in a `.env` file:
-    ```dotenv
-    DATABASE_URL=postgres://postgres:postgres@localhost:5432/metered
-    ```
+### Public Endpoints
 
-3. Run locally with Docker Compose:
-    ```bash
-    docker compose up --build
-    ```
+- `GET /health` - Health check
+- `GET /docs` - API documentation
+- `GET /metrics` - System metrics
 
-4. Access:
-    - API: `http://localhost:8080`
-    - OpenAPI UI (Swagger): `http://localhost:8080/docs`
-    - Health checks: `http://localhost:8080/healthz` and `/readyz`
+### Admin Endpoints
 
----
+- `POST /admin/keys` - Create new API key
+- `GET /admin/keys` - List all API keys
+- `DELETE /admin/keys/{id}` - Delete API key
+- `GET /admin/keys/{key}/stats` - Get usage statistics
+- `GET /admin/keys/{key}/report` - Get monthly report
 
-##  ​ Contributing
+### Protected Endpoints (Require API Key)
 
-Contributions, issues, and discussions are welcome!  
-Feel free to **fork**, **open an issue**, or submit a **pull request**.
+- `POST /readings` - Submit sensor reading
+- `GET /readings` - Get all readings
 
----
+## Configuration
 
-##  ​ License
+Environment variables can be set in `.env` file:
 
-This project is licensed under the **MIT License** — see the `LICENSE` file for details.
+```env
+# Database
+DATABASE_URL=postgresql://user:password@localhost/api_key_db
+
+# Server
+SERVER_HOST=127.0.0.1
+SERVER_PORT=3030
+
+# Logging
+RUST_LOG=info
+```
+
+## Database Schema
+
+The system uses three main tables:
+
+- **api_keys** - Stores API keys with usage counts and limits
+- **readings** - Business data (sensor readings in this example)
+- **requests** - Complete request audit log
+
+## Rate Limiting & Quotas
+
+Each API key can have:
+
+- **Rate Limit**: Requests per minute (default: 60)
+- **Quota Limit**: Total requests allowed (optional)
+
+When limits are exceeded:
+
+- Rate limit: Returns `429 Too Many Requests`
+- Quota exceeded: Returns `403 Forbidden`
+
+## Testing
+
+For comprehensive testing instructions, see [TESTING.md](./TESTING.md).
+
+## Docker Commands
+
+```bash
+# Build images
+docker-compose build
+
+# Start services
+docker-compose up -d
+
+# Stop services
+docker-compose down
+
+# View logs
+docker-compose logs -f api
+
+# Access database
+docker-compose exec postgres psql -U apiuser -d metered_api
+
+# Run migrations
+docker-compose exec api sqlx migrate run
+
+# Clean everything (including data)
+docker-compose down -v
+```
+
+## Project Structure
+
+<!-- ```
+metered-api-server/
+├── src/
+│   ├── main.rs           # Application entry point
+│   ├── db/               # Database connection module
+│   ├── handlers/         # Request handlers
+│   │   ├── admin.rs      # Admin endpoints
+│   │   ├── business.rs   # Business logic endpoints
+│   │   ├── usage.rs      # Usage tracking endpoints
+│   │   └── metrics.rs    # Metrics endpoint
+│   ├── middleware/       # Middleware components
+│   │   ├── auth.rs       # Authentication & authorization
+│   │   ├── rate_limiter.rs # Rate limiting
+│   │   └── validation.rs # Input validation
+│   └── models/           # Data models
+├── migrations/           # SQL migration files
+├── static/              # Static files (docs.html)
+├── Cargo.toml           # Rust dependencies
+├── Dockerfile           # Docker image definition
+├── docker-compose.yml   # Docker services configuration
+└── .env.example         # Environment variables template
+``` -->
+
+## Development Phases
+
+This project was built in 5 phases:
+
+1. **Phase 1**: Core API with key management and protected endpoints
+2. **Phase 2**: Usage tracking and reporting
+3. **Phase 3**: Rate limiting and quota management
+4. **Phase 4**: Docker containerization
+5. **Phase 5**: Input validation and metrics
+
+## Performance
+
+- Efficient connection pooling with configurable limits
+- Asynchronous request handling with Tokio
+- Compile-time SQL validation with SQLx
+- In-memory rate limiting for minimal latency
+- Optimized Docker images with multi-stage builds
+
+## Security
+
+- API keys are generated with cryptographically secure random values
+- Keys are only shown once at creation time
+- All inputs are validated and sanitized
+- SQL injection prevention through parameterized queries
+- Rate limiting prevents abuse
+- Non-root Docker container user
+
+## Error Handling
+
+All errors follow a consistent JSON format:
+
+```json
+{
+  "code": "ERROR_CODE",
+  "message": "Human-readable error message"
+}
+```
+
+## License
+
+MIT License - see LICENSE file for details
