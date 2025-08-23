@@ -9,6 +9,9 @@ pub use business::*;
 pub mod usage;
 pub use usage::*;
 
+pub mod metrics;
+pub use metrics::*;
+
 #[derive(Debug, Serialize, Deserialize, FromRow)]
 pub struct ApiKey {
     pub id: Uuid,

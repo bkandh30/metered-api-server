@@ -1,7 +1,4 @@
-use crate::db::DbPool;
 use serde::Serialize;
-use std::convert::Infalliable;
-use warp::{Reply, reply};
 
 #[derive(Serialize)]
 pub struct SystemMetrics {
