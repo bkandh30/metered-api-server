@@ -81,6 +81,7 @@ async fn main() -> Result<()> {
                 db_pool.clone(),
                 rate_limiter.clone(),
             ))
+            .and(middleware::validation::Validator::body_limit())
             .and(with_db(db_pool.clone()))
             .and(middleware::validation::validate_reading_request())
             .and_then(handlers::business::submit_reading);
