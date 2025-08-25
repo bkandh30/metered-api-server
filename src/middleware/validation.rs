@@ -83,21 +83,6 @@ impl Validator {
         Ok(())
     }
 
-    pub fn api_key_name(name: &str) -> Result<(), String> {
-        if name.is_empty() {
-            return Err("API key name cannot be empty".to_string());
-        }
-
-        if name.len() > MAX_NAME_LENGTH {
-            return Err(format!(
-                "Name exceeds maximum length of {}",
-                MAX_NAME_LENGTH
-            ));
-        }
-
-        Ok(())
-    }
-
     pub fn body_limit() -> impl Filter<Extract = (), Error = Rejection> + Clone {
         body::content_length_limit(MAX_BODY_SIZE)
     }
