@@ -25,3 +25,4 @@ anyhow = "1.0"
 tracing-subscriber = "0.3.19"
 tracing = "0.1"
 rand = "0.9.2"
+aide = { version = "0.15.1", features = ["warp"] }

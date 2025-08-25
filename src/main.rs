@@ -2,6 +2,7 @@ mod db;
 mod handlers;
 mod middleware;
 mod models;
+mod openapi;
 
 use crate::middleware::rate_limiter::RateLimiter;
 use anyhow::Result;
