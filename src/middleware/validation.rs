@@ -2,7 +2,8 @@ use serde::Deserialize;
 use warp::{Filter, Rejection, body, reject};
 
 #[derive(Debug)]
-pub struct ValidationError(String);
+#[allow(dead_code)]
+pub struct ValidationError(pub String);
 impl reject::Reject for ValidationError {}
 
 #[derive(Deserialize, serde::Serialize)]
@@ -15,7 +16,6 @@ pub struct ErrorResponse {
 
 const MAX_SENSOR_ID_LENGTH: usize = 100;
 const MAX_UNIT_LENGTH: usize = 50;
-const MAX_NAME_LENGTH: usize = 255;
 const MAX_BODY_SIZE: u64 = 1024 * 1024;
 
 pub struct Validator;
